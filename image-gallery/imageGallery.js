@@ -86,6 +86,12 @@ class ComfyCarousel extends ComfyDialog {
   createButtons() {
     return [];
   }
+  isOpen() {
+    return this.element.style.display == "flex";
+  }
+  isClosed() {
+    return this.element.style.display != "flex";
+  }
 }
 
 app.registerExtension({
@@ -94,7 +100,7 @@ app.registerExtension({
     app.ui.carousel = new ComfyCarousel();
   },
   beforeRegisterNodeDef(nodeType, nodeData) {
-		if (nodeData.name === "SaveImage" || nodeData.name === "PreviewImage") {
+	if (nodeData.name === "SaveImage" || nodeData.name === "PreviewImage") {
       const getActive = () => {
         const active = slides.querySelector('.shown');
         const imageIndex = [...slides.childNodes].indexOf(active);
@@ -131,33 +137,69 @@ app.registerExtension({
 
       const slides = $el("div.slides");
       const dots = $el("div.dots");
-      const carousel = $el("div.comfy-carousel-box", {  }, [
+      const carousel = $el("div.comfy-carousel-box", { 
+        $: (el) => el.addEventListener('click', (e) => prevSlide(e), true), 
+      }, [
         slides,
         dots,
         $el("a.prev", { $: (el) => el.addEventListener('click', (e) => prevSlide(e), true), }),
         $el("a.next", { $: (el) => el.addEventListener('click', (e) => nextSlide(e), true), }),
       ]);
 
-      nodeType.prototype.onMouseUp = function (e, pos, graph) {
-        // remove all child nodes
+      nodeType.prototype.openCarousel = function (onlyIfOpen = true) {
+        if (onlyIfOpen && app.ui.carousel.isClosed()) return;
+
         slides.innerHTML = "";
         dots.innerHTML = "";
 
+        let img;
         if (this.imgs && this.imgs.length) {
-          for (let imgId in this.imgs) {
-            slides.append(this.imgs[imgId].cloneNode(true));
-
-            let dot = this.imgs[imgId].cloneNode(true);
-            dot.addEventListener('click', (e) => {
-              selectImage(imgId);
-              e.stopPropagation();
-            }, true);
-            dots.append(dot);
+          if (this.imgs.length === 2) {
+            for (let i = 0; i < this.imgs.length - 1; i++) {
+              img = mergeImages(this.imgs[i], this.imgs[i+1]);
+            }
+          } else {
+            img = this.imgs[0];
           }
-          selectImage(this.imageIndex || 0);
+
+
+          slides.append(img.cloneNode(true));
+          dots.append(img.cloneNode(true));
+          selectImage(0);
           app.ui.carousel.show(carousel);
         }
       }
+
+      nodeType.prototype.onMouseUp = function (e, pos, graph) {
+        this.openCarousel(false);
+      }
+
+      nodeType.prototype.setSizeForImage = (function(_super) {
+        return function(force) {
+          this.openCarousel();
+          return _super.apply(this, arguments);
+        };
+     })(nodeType.prototype.setSizeForImage);
     }
   },
 });
+
+function mergeImages(image1, image2) {
+  let canvas = document.createElement('canvas');
+  let ctx = canvas.getContext('2d');
+
+  // Set canvas dimensions
+  canvas.width = image1.width + image2.width;
+  canvas.height = Math.max(image1.height, image2.height);
+
+  // Draw images onto canvas
+  ctx.drawImage(image1, 0, 0);
+  ctx.drawImage(image2, image1.width + 5, 0);
+
+  // Get the resulting image as a data URL
+  let dataURL = canvas.toDataURL();
+  const out = new Image();
+  out.src = dataURL;
+
+  return out;
+}

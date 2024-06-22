@@ -1,6 +1,10 @@
-# ComfyUI-Extensions
+# ComfyUI-Image-Preview-Carousel
 
 Custom javascript extensions for better UX for ComfyUI.
+
+## Installation
+
+1. Copy `imageGallery.js` into `__COMFY_DIR__/web/extensions/` folder.
 
 ## Image Gallery
 
